@@ -40,7 +40,14 @@ def put_list(lists,lexicon):
     while True:
         if lists.empty():
             lists.put(lexicon)
-            print('put lists')
+            print('\nput lists')
+
+def close_worker(task):
+    while True:
+        if task.empty():
+            task.put('command:worker.close()')
+            print('\nclose worker')
+
 
 def break_for(matched,wordLen,sentence,startPoint,task,result,wordSeg):
     for i in range(wordLen, 0, -1):
@@ -58,7 +65,10 @@ def break_for(matched,wordLen,sentence,startPoint,task,result,wordSeg):
                 else:
                     break
             except queue.Empty:
-                print('result queue is empty now.')
+                print('\nresult queue is empty now.')
+                if task.empty():
+                    task.put(string)
+                continue
     return matched,startPoint
 
 def start():
@@ -88,12 +98,14 @@ def start():
                 print(sentence[startPoint],end=' ')
                 wordSeg.append(sentence[startPoint])   # 全部切分为单字词
                 startPoint += i
+    Pclose=Process(target=close_worker,args=(task,))
+    Pclose.start()
     with open('WordSeg.txt', 'w', encoding='utf-8') as des:
         for word in wordSeg:
             des.write(word+'  ')
     time.sleep(10)
     manager.shutdown()
-    print('master exit.')
+    print('\nmaster exit.')
 
 if __name__=='__main__':
     start()

@@ -17,19 +17,18 @@ lists=m.get_list_queue()
 lexicon=lists.get(timeout=2)
 task=m.get_task_queue()
 result=m.get_result_queue()
-flag=False
 while True:
     try:
         string=task.get(timeout=1)
-        flag=True
         if string in lexicon:
             result.put(True)
             print(string,end=' ')
         else:
             result.put(False)
+            if string=='command:worker.close()':
+                print('\ndone')
+                break
     except queue.Empty:
-        if flag:
-            print('done')
-            break
-        print('task queue is empty now.')
+        print('\ntask queue is empty now.')
+        continue
 print('worker exit.')

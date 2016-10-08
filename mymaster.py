@@ -1,6 +1,6 @@
 import queue,time
 from multiprocessing.managers import BaseManager
-from multiprocessing import Process
+from multiprocessing import Process,Queue
 
 class QueueManager(BaseManager):
     pass
@@ -33,17 +33,17 @@ def read_word_freq_list():
                 elif i>10:
                     s+=flist[i]
             d.append(s)
-        lexicon = tuple(d)
+        lexicon = set(d)
         return  lexicon
 
-def put_list(lists,lexicon):
-    while True:
+def put_list(done_flag,lists,lexicon):
+    while done_flag.empty():
         if lists.empty():
             lists.put(lexicon)
-            print('\nput lists')
+            print('\nput freq datas')
 
-def close_worker(task):
-    while True:
+def close_worker(done_flag,task):
+    while done_flag.empty():
         if task.empty():
             task.put('command:worker.close()')
             print('\nclose worker')
@@ -56,7 +56,7 @@ def break_for(matched,wordLen,sentence,startPoint,task,result,wordSeg):
         while True:
             try:
                 r=result.get(timeout=2)
-                if r==True:
+                if r:
                     print(string,end=' ')
                     wordSeg.append(string)
                     matched = True
@@ -72,6 +72,7 @@ def break_for(matched,wordLen,sentence,startPoint,task,result,wordSeg):
     return matched,startPoint
 
 def start():
+    done_flag=Queue()
     QueueManager.register('get_list_queue',callable=return_list_queue)
     QueueManager.register('get_task_queue',callable=return_task_queue)
     QueueManager.register('get_result_queue',callable=return_result_queue)
@@ -81,7 +82,7 @@ def start():
     task=manager.get_task_queue()
     result=manager.get_result_queue()
     lexicon=read_word_freq_list()
-    Plist=Process(target=put_list,args=(lists,lexicon))
+    Plist=Process(target=put_list,args=(done_flag,lists,lexicon))
     Plist.start()
     wordSeg = []    # 新建列表存放切分好的词
     maxWordLen = 4  # 最大词长设为4
@@ -98,12 +99,13 @@ def start():
                 print(sentence[startPoint],end=' ')
                 wordSeg.append(sentence[startPoint])   # 全部切分为单字词
                 startPoint += i
-    Pclose=Process(target=close_worker,args=(task,))
+    Pclose=Process(target=close_worker,args=(done_flag,task))
     Pclose.start()
     with open('WordSeg.txt', 'w', encoding='utf-8') as des:
         for word in wordSeg:
             des.write(word+'  ')
-    time.sleep(10)
+    done_flag.put('done')
+    time.sleep(1)
     manager.shutdown()
     print('\nmaster exit.')
 
